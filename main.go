@@ -6,16 +6,23 @@ import (
 	"os"
 )
 
-func main() {
-	port := os.Getenv("PORT")
+func serverAddress(port string) string {
 	if port == "" {
 		port = "8080"
 	}
 
-	address := ":" + port
+	return ":" + port
+}
+
+func run(getenv func(string) string, listenAndServe func(string, http.Handler) error) error {
+	address := serverAddress(getenv("PORT"))
 	log.Printf("starting server on %s", address)
 
-	if err := http.ListenAndServe(address, newMux()); err != nil {
+	return listenAndServe(address, newMux())
+}
+
+func main() {
+	if err := run(os.Getenv, http.ListenAndServe); err != nil {
 		log.Fatal(err)
 	}
 }
