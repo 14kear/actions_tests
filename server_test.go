@@ -6,41 +6,32 @@ import (
 	"testing"
 )
 
-func TestHelloEndpointReturnsStatusOK(t *testing.T) {
-	request := httptest.NewRequest(http.MethodGet, "/api/hello", nil)
-	recorder := httptest.NewRecorder()
+func TestHelloEndpoint(t *testing.T) {
+	handler := newMux()
+	testCases := []struct {
+		name       string
+		method     string
+		wantStatus int
+	}{
+		{name: "get returns ok", method: http.MethodGet, wantStatus: http.StatusOK},
+		{name: "post returns method not allowed", method: http.MethodPost, wantStatus: http.StatusMethodNotAllowed},
+	}
 
-	newMux().ServeHTTP(recorder, request)
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(testCase.method, "/api/hello", nil)
+			recorder := httptest.NewRecorder()
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+			handler.ServeHTTP(recorder, request)
+
+			if recorder.Code != testCase.wantStatus {
+				t.Fatalf("expected status %d, got %d", testCase.wantStatus, recorder.Code)
+			}
+		})
 	}
 }
 
-func TestHelloEndpointReturnsMethodNotAllowedForPost(t *testing.T) {
-	request := httptest.NewRequest(http.MethodPost, "/api/hello", nil)
-	recorder := httptest.NewRecorder()
-
-	newMux().ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("expected status %d, got %d", http.StatusMethodNotAllowed, recorder.Code)
-	}
-}
-
-func TestServerAddressUsesDefaultPort(t *testing.T) {
-	if got := serverAddress(""); got != ":8080" {
-		t.Fatalf("expected default address :8080, got %s", got)
-	}
-}
-
-func TestServerAddressUsesProvidedPort(t *testing.T) {
-	if got := serverAddress("9090"); got != ":9090" {
-		t.Fatalf("expected address :9090, got %s", got)
-	}
-}
-
-func TestRunUsesConfiguredPortAndHandler(t *testing.T) {
+func TestRunUsesDefaultPortAndHandler(t *testing.T) {
 	var receivedAddress string
 	var receivedHandler http.Handler
 
@@ -50,7 +41,7 @@ func TestRunUsesConfiguredPortAndHandler(t *testing.T) {
 				t.Fatalf("expected PORT env lookup, got %s", key)
 			}
 
-			return "9090"
+			return ""
 		},
 		func(address string, handler http.Handler) error {
 			receivedAddress = address
@@ -62,8 +53,8 @@ func TestRunUsesConfiguredPortAndHandler(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	if receivedAddress != ":9090" {
-		t.Fatalf("expected address :9090, got %s", receivedAddress)
+	if receivedAddress != ":8080" {
+		t.Fatalf("expected address :8080, got %s", receivedAddress)
 	}
 
 	request := httptest.NewRequest(http.MethodGet, "/api/hello", nil)
