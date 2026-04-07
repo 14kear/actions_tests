@@ -1,0 +1,44 @@
+name: Pull Request Tests
+
+on:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Run unit tests with coverage
+        run: |
+          go test -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+          coverage=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub("%", "", $3); print $3}')
+          echo "Total coverage: ${coverage}%"
+          awk -v coverage="$coverage" 'BEGIN { exit (coverage >= 80 ? 0 : 1) }'
+
+      - name: Build Docker image
+        run: docker build -t hello-app .
+
+      - name: Run application container
+        run: docker run -d --rm --name hello-app -p 8080:8080 hello-app
+
+      - name: Verify /api/hello endpoint
+        run: |
+          sleep 3
+          curl --fail --show-error --silent http://127.0.0.1:8080/api/hello
+
+      - name: Print container logs on failure
+        if: failure()
+        run: docker logs hello-app || true
+
+      - name: Stop container
+        if: always()
+        run: docker stop hello-app || true
